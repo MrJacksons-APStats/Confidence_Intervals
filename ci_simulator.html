@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Confidence Intervals for a Proportion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+  --bg:#EEF2F7; --surface:#FFFFFF; --surface2:#F6F8FB; --ink:#0F1F33; --muted:#56677D;
+  --line:#D3DCE7; --band:#00274C; --band-ink:#FFFFFF; --maize:#FFCB05; --maize-ink:#00274C;
+  --hit:#00274C; --miss:#C8102E; --pline:#2774AE; --sel:#E0A800; --cell-on:#2774AE; --cell-off:#DCE3EC;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#06121F; --surface:#0D1F33; --surface2:#112840; --ink:#E7EEF7; --muted:#9BAEC4;
+    --line:#22405F; --band:#00274C; --band-ink:#FFFFFF; --maize:#FFCB05; --maize-ink:#00274C;
+    --hit:#9CC3EE; --miss:#FF6B6B; --pline:#FFCB05; --sel:#FFCB05; --cell-on:#5FA3E0; --cell-off:#1C3652;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#06121F; --surface:#0D1F33; --surface2:#112840; --ink:#E7EEF7; --muted:#9BAEC4;
+  --line:#22405F; --band:#00274C; --band-ink:#FFFFFF; --maize:#FFCB05; --maize-ink:#00274C;
+  --hit:#9CC3EE; --miss:#FF6B6B; --pline:#FFCB05; --sel:#FFCB05; --cell-on:#5FA3E0; --cell-off:#1C3652;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.45;font-variant-numeric:tabular-nums}
+header{background:var(--band);color:var(--band-ink);padding:22px 20px 18px;border-bottom:6px solid var(--maize)}
+header .wrap{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px}
+h1{margin:0;font-size:clamp(1.4rem,3.2vw,2rem);letter-spacing:-0.01em;line-height:1.15}
+header p{margin:0;opacity:.85;font-size:.95rem}
+.wrap{max-width:1180px;margin:0 auto}
+main{padding:18px 16px 40px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+h2{font-size:1.1rem;margin:0 0 4px}
+.sub{color:var(--muted);font-size:.9rem;margin:0 0 10px}
+
+/* Controls */
+.controls{display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:14px 26px;align-items:start}
+.ctl label,.ctl .lab{display:block;font-weight:700;margin-bottom:6px}
+.ctl .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=number]{font:inherit;width:5.2em;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface2);color:var(--ink)}
+input[type=range]{flex:1;min-width:120px;accent-color:var(--band)}
+:root[data-theme="dark"] input[type=range]{accent-color:var(--maize)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) input[type=range]{accent-color:var(--maize)}}
+.chip{font:inherit;font-size:.92rem;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface2);color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--maize);color:var(--maize-ink);border-color:var(--maize);font-weight:700}
+.gen{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.btn{font:inherit;font-weight:700;padding:9px 16px;border-radius:8px;border:2px solid var(--band);background:var(--band);color:#fff;cursor:pointer}
+.btn.alt{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.play[aria-pressed="true"]{background:var(--maize);border-color:var(--maize);color:var(--maize-ink)}
+.btn:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,.row-hit:focus-visible{outline:3px solid var(--maize);outline-offset:2px}
+.zline{margin-left:auto;color:var(--muted);font-size:.95rem}
+
+/* Layout */
+.grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:16px;margin-top:16px}
+.stack{display:flex;flex-direction:column;gap:16px}
+svg{display:block;width:100%;height:auto}
+.axis line,.axis path{stroke:var(--muted)}
+.axis text{fill:var(--muted);font-size:13px}
+.ptext{fill:var(--pline);font-weight:700}
+.t-ink{fill:var(--ink)}
+.t-muted{fill:var(--muted)}
+
+.detail-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.verdict{font-weight:700;padding:3px 10px;border-radius:6px;font-size:.95rem}
+.verdict.hit{background:color-mix(in srgb,var(--hit) 15%,transparent);color:var(--hit)}
+.verdict.miss{background:color-mix(in srgb,var(--miss) 15%,transparent);color:var(--miss)}
+.calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:8px}
+.calc div{background:var(--surface2);border-radius:8px;padding:8px 12px}
+.calc .k{color:var(--muted);font-size:.82rem;display:block}
+.calc .v{font-size:1.02rem}
+.calc .v b{font-size:1.1rem}
+.note{color:var(--muted);font-size:.9rem;margin:10px 0 0}
+.counts{font-size:.9rem;margin-top:8px}
+.counts .ok{color:var(--hit);font-weight:700}
+.counts .bad{color:var(--miss);font-weight:700}
+.linkbtn{font:inherit;font-size:.9rem;background:none;border:none;color:var(--pline);text-decoration:underline;cursor:pointer;padding:0}
+
+.big{font-size:2.6rem;font-weight:700;line-height:1;margin:4px 0 2px}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.statgrid div{background:var(--surface2);border-radius:8px;padding:8px 10px}
+.statgrid .k{display:block;color:var(--muted);font-size:.82rem}
+.statgrid .v{font-weight:700;font-size:1.05rem}
+
+.grouphead{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-bottom:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:.92rem;padding:6px 12px;border:none;background:var(--surface2);color:var(--ink);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button[aria-pressed="true"]{background:var(--band);color:#fff;font-weight:700}
+.check{display:inline-flex;gap:6px;align-items:center;font-size:.92rem}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.88rem;color:var(--muted);margin-top:6px}
+.sw{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.row-hit{cursor:pointer}
+.row-hit:hover{fill:color-mix(in srgb,var(--maize) 18%,transparent)}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:520px}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:700;font-size:.85rem}
+tr.current td{background:color-mix(in srgb,var(--maize) 14%,transparent);font-weight:700}
+.empty{color:var(--muted);font-style:italic}
+
+@media (max-width:900px){
+  .controls{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr}
+  .zline{margin-left:0;width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.fadein{animation:fade .35s ease-out}
+@keyframes fade{from{opacity:.15}to{opacity:1}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Confidence intervals for a proportion</h1>
+    <p>Draw random samples from a population with a known <i>p</i> and watch which intervals capture it.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="panel" aria-label="Simulation settings">
+    <div class="controls">
+      <div class="ctl">
+        <label for="p">True proportion <i>p</i></label>
+        <div class="row">
+          <input type="range" id="pr" min="0.01" max="0.99" step="0.01" value="0.5" aria-label="True proportion slider">
+          <input type="number" id="p" min="0.01" max="0.99" step="0.01" value="0.5">
+        </div>
+      </div>
+      <div class="ctl">
+        <label for="n">Sample size <i>n</i></label>
+        <div class="row">
+          <input type="number" id="n" min="5" max="1000" step="1" value="100">
+          <button class="chip" data-n="20">20</button>
+          <button class="chip" data-n="100">100</button>
+          <button class="chip" data-n="250">250</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="lab">Confidence level</span>
+        <div class="row" id="cchips">
+          <button class="chip" data-c="0.80">80%</button>
+          <button class="chip" data-c="0.85">85%</button>
+          <button class="chip" data-c="0.90">90%</button>
+          <button class="chip" data-c="0.95">95%</button>
+          <button class="chip" data-c="0.99">99%</button>
+          <input type="number" id="cother" min="50" max="99.9" step="0.1" placeholder="Other %" aria-label="Other confidence level, in percent" style="width:6.4em">
+        </div>
+      </div>
+    </div>
+    <div class="gen">
+      <button class="btn" data-k="1">1 interval</button>
+      <button class="btn" data-k="10">10 intervals</button>
+      <button class="btn" data-k="100">100 intervals</button>
+      <button class="btn" data-k="1000">1,000 intervals</button>
+      <button class="btn alt play" id="play" aria-pressed="false">Play one at a time</button>
+      <button class="btn alt" id="reset">Reset</button>
+      <span class="zline" id="zline"></span>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="panel" aria-live="polite">
+        <div class="detail-head">
+          <h2 id="dtitle">Latest interval</h2>
+          <span id="verdict"></span>
+        </div>
+        <p class="sub" id="dsub">Each interval comes from one random sample: point estimate ± margin of error.</p>
+        <svg id="detail" viewBox="0 0 800 230" role="img" aria-label="Number line showing the latest confidence interval"></svg>
+        <div class="calc" id="calc"></div>
+        <div class="counts" id="counts"></div>
+        <svg id="sample" viewBox="0 0 800 40" role="img" aria-label="The sample: successes and failures" style="margin-top:10px"></svg>
+        <p class="note" id="samplenote"></p>
+      </section>
+
+      <section class="panel">
+        <div class="grouphead">
+          <div>
+            <h2>Many intervals</h2>
+            <p class="sub" style="margin:0">Newest at the top. Click any interval to see its details above.</p>
+          </div>
+          <div class="row" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+            <div class="seg" role="group" aria-label="How many intervals to show">
+              <button data-v="10">Last 10</button>
+              <button data-v="50">Last 50</button>
+              <button data-v="100">Last 100</button>
+            </div>
+            <label class="check"><input type="checkbox" id="sort"> Sort by <i>p̂</i></label>
+          </div>
+        </div>
+        <svg id="group" viewBox="0 0 800 300" role="img" aria-label="Stack of recent confidence intervals"></svg>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--hit)"></span>Captured <i>p</i></span>
+          <span><span class="sw" style="background:var(--miss)"></span>Missed <i>p</i> (circled)</span>
+          <span><span class="sw" style="background:var(--pline)"></span>True proportion <i>p</i></span>
+        </div>
+        <p class="note" id="groupnote"></p>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>Prop. contained</h2>
+        <p class="sub">Fraction of all intervals so far (these settings) that captured <i>p</i>.</p>
+        <div class="big" id="bigprop">—</div>
+        <div id="bigsub" class="sub"></div>
+        <div class="statgrid">
+          <div><span class="k">Intervals</span><span class="v" id="sTotal">0</span></div>
+          <div><span class="k">Captured <i>p</i></span><span class="v" id="sHits">0</span></div>
+          <div><span class="k">Confidence level</span><span class="v" id="sC">—</span></div>
+          <div><span class="k">Average margin of error</span><span class="v" id="sME">—</span></div>
+        </div>
+        <svg id="run" viewBox="0 0 400 190" role="img" aria-label="Running proportion contained compared to the confidence level"></svg>
+        <p class="note">The dashed line is the confidence level. With more and more intervals, the running proportion settles near it.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Compare settings</h2>
+        <p class="sub">Every time you change <i>n</i>, <i>p</i>, or the confidence level (or reset), the run is saved here.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Run</th><th><i>n</i></th><th><i>p</i></th><th>Level</th><th>Intervals</th><th>Prop. contained</th><th>Avg. ME</th></tr></thead>
+            <tbody id="log"></tbody>
+          </table>
+        </div>
+        <p style="margin:10px 0 0"><button class="linkbtn" id="clearlog">Clear saved runs</button></p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+// ---------- math ----------
+function invNorm(p){ // Acklam
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl=0.02425,ph=1-pl;let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=ph){q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+const zstar=C=>invNorm(1-(1-C)/2);
+
+// ---------- state ----------
+const S={p:0.5,n:100,C:0.80,iv:[],hits:0,sumME:0,series:[],sel:null,view:10,sort:false,log:[],run:1,timer:null};
+
+const $=id=>document.getElementById(id);
+const f3=v=>(Math.round(v*1000)/1000).toFixed(3);
+const f4=v=>v.toFixed(4);
+const pct=C=>{const s=(C*100).toFixed(1);return (s.endsWith('.0')?s.slice(0,-2):s)+'%';};
+const comma=x=>x.toLocaleString('en-US');
+const fp=v=>{const s=v.toFixed(3);return s.replace(/0+$/,'').replace(/\.$/,'.0');};
+
+// ---------- generation ----------
+function gen(k){
+  const z=zstar(S.C),n=S.n,p=S.p;
+  for(let i=0;i<k;i++){
+    let x=0;for(let j=0;j<n;j++) if(Math.random()<p) x++;
+    const ph=x/n,se=Math.sqrt(ph*(1-ph)/n),me=z*se,lo=ph-me,hi=ph+me;
+    const hit=lo<=p&&p<=hi;
+    S.iv.push({id:S.iv.length+1,x,ph,se,me,lo,hi,hit,z});
+    if(hit)S.hits++;S.sumME+=me;S.series.push(S.hits/S.iv.length);
+  }
+  S.sel=null;render(true);
+}
+function saveRun(){
+  if(S.iv.length){S.log.push({run:S.run++,n:S.n,p:S.p,C:S.C,count:S.iv.length,hits:S.hits,me:S.sumME/S.iv.length});}
+  S.iv=[];S.hits=0;S.sumME=0;S.series=[];S.sel=null;
+}
+function stopPlay(){if(S.timer){clearInterval(S.timer);S.timer=null;$('play').setAttribute('aria-pressed','false');$('play').textContent='Play one at a time';}}
+function change(fn){stopPlay();saveRun();fn();syncControls();render(false);}
+
+// ---------- axis ----------
+function domain(){let a=S.p-0.3,b=S.p+0.3;if(a<0){b-=a;a=0;}if(b>1){a-=(b-1);b=1;}return[Math.max(0,a),Math.min(1,b)];}
+function scaler(a,b,L,R){return v=>L+(Math.min(b,Math.max(a,v))-a)/(b-a)*(R-L);}
+function axisSVG(a,b,X,y,top){
+  let s=`<g class="axis"><line x1="${X(a)}" y1="${y}" x2="${X(b)}" y2="${y}" stroke-width="1.5"/>`;
+  const start=Math.ceil(a*20-1e-9);
+  for(let k=start;k/20<=b+1e-9;k++){const v=k/20,major=k%2===0;
+    s+=`<line x1="${X(v)}" y1="${y}" x2="${X(v)}" y2="${y+(major?8:5)}" stroke-width="1"/>`;
+    if(major)s+=`<text x="${X(v)}" y="${y+24}" text-anchor="middle">${(k/20).toFixed(1)}</text>`;}
+  return s+'</g>';
+}
+
+// ---------- render ----------
+function current(){if(!S.iv.length)return null;return S.sel?S.iv[S.sel-1]:S.iv[S.iv.length-1];}
+
+function renderDetail(anim){
+  const it=current(),[a,b]=domain(),L=40,R=760,X=scaler(a,b,L,R),p=S.p;
+  let s='';
+  s+=`<line x1="${X(p)}" y1="26" x2="${X(p)}" y2="180" stroke="var(--pline)" stroke-width="2.5" stroke-dasharray="7 5"/>`;
+  s+=`<text x="${X(p)}" y="18" text-anchor="middle" class="ptext" font-size="15">p = ${fp(p)}</text>`;
+  s+=axisSVG(a,b,X,180);
+  if(!it){
+    s+=`<text x="400" y="110" text-anchor="middle" class="t-muted" font-size="17">Press “1 interval” to take a sample and build its interval.</text>`;
+    $('detail').innerHTML=s;$('verdict').innerHTML='';$('calc').innerHTML='';$('counts').innerHTML='';$('sample').innerHTML='';$('samplenote').textContent='';
+    $('dtitle').textContent='Latest interval';return;
+  }
+  const col=it.hit?'var(--hit)':'var(--miss)',y=112,xl=X(it.lo),xh=X(it.hi),xp=X(it.ph);
+  s+=`<g class="${anim?'fadein':''}">`;
+  // ME brackets
+  const by=72,half=(xh-xl)/2;
+  const br=(x1,x2)=>`<path d="M${x1} ${by+8} V${by} H${x2} V${by+8}" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`;
+  s+=br(xl,xp)+br(xp,xh);
+  if(half>78){
+    s+=`<text x="${(xl+xp)/2}" y="${by-8}" text-anchor="middle" class="t-ink" font-size="14">ME = ${f3(it.me)}</text>`;
+    s+=`<text x="${(xp+xh)/2}" y="${by-8}" text-anchor="middle" class="t-ink" font-size="14">ME = ${f3(it.me)}</text>`;
+  }else{
+    s+=`<text x="${xp}" y="${by-8}" text-anchor="middle" class="t-ink" font-size="14">ME = ${f3(it.me)} on each side</text>`;
+  }
+  s+=`<line x1="${xl}" y1="${y}" x2="${xh}" y2="${y}" stroke="${col}" stroke-width="7" stroke-linecap="butt"/>`;
+  s+=`<line x1="${xl}" y1="${y-13}" x2="${xl}" y2="${y+13}" stroke="${col}" stroke-width="3"/>`;
+  s+=`<line x1="${xh}" y1="${y-13}" x2="${xh}" y2="${y+13}" stroke="${col}" stroke-width="3"/>`;
+  s+=`<circle cx="${xp}" cy="${y}" r="8" fill="var(--surface)" stroke="${col}" stroke-width="3.5"/>`;
+  s+=`<text x="${xl-8}" y="${y+5}" text-anchor="end" class="t-ink" font-size="15" font-weight="700">${f3(it.lo)}</text>`;
+  s+=`<text x="${xh+8}" y="${y+5}" text-anchor="start" class="t-ink" font-size="15" font-weight="700">${f3(it.hi)}</text>`;
+  s+=`<text x="${xp}" y="${y+34}" text-anchor="middle" class="t-ink" font-size="15">p̂ = ${f3(it.ph)}</text>`;
+  if(!it.hit)s+=`<ellipse cx="${(xl+xh)/2}" cy="${y}" rx="${Math.max(30,half+30)}" ry="26" fill="none" stroke="var(--miss)" stroke-width="2"/>`;
+  s+='</g>';
+  $('detail').innerHTML=s;
+  const latest=it.id===S.iv.length;
+  $('dtitle').innerHTML=(latest?'Latest interval':'Selected interval')+` <span style="color:var(--muted);font-weight:400">(#${comma(it.id)})</span>`;
+  $('verdict').innerHTML=`<span class="verdict ${it.hit?'hit':'miss'}">${it.hit?'Captured p':'Missed p'}</span>`+(latest?'':` <button class="linkbtn" id="tolatest">Back to latest</button>`);
+  if(!latest)$('tolatest').onclick=()=>{S.sel=null;render(false);};
+  $('calc').innerHTML=
+    `<div><span class="k">Point estimate</span><span class="v">p̂ = ${it.x}/${S.n} = <b>${f3(it.ph)}</b></span></div>`+
+    `<div><span class="k">Critical value for ${pct(S.C)}</span><span class="v">z* = <b>${it.z.toFixed(3)}</b></span></div>`+
+    `<div><span class="k">Standard error</span><span class="v">√(p̂(1 − p̂)/n) = <b>${f4(it.se)}</b></span></div>`+
+    `<div><span class="k">Margin of error</span><span class="v">z* × SE = ${it.z.toFixed(3)} × ${f4(it.se)} = <b>${f3(it.me)}</b></span></div>`+
+    `<div style="grid-column:1/-1"><span class="k">Interval</span><span class="v">${f3(it.ph)} ± ${f3(it.me)} = <b>(${f3(it.lo)}, ${f3(it.hi)})</b> ${it.hit?'contains':'does not contain'} p = ${fp(p)}</span></div>`;
+  const s1=it.x,s2=S.n-it.x,ok1=s1>=10,ok2=s2>=10;
+  $('counts').innerHTML=`Large Counts: n·p̂ = <span class="${ok1?'ok':'bad'}">${s1} ${ok1?'≥':'<'} 10</span> and n(1 − p̂) = <span class="${ok2?'ok':'bad'}">${s2} ${ok2?'≥':'<'} 10</span>`+
+    (ok1&&ok2?'':` — the Normal approximation is shaky for this sample, so this interval method may not work well.`);
+  // sample grid
+  const n=S.n,cols=n<=50?25:n<=200?50:100,cell=Math.min(28,800/cols),rows=Math.ceil(n/cols),h=rows*cell;
+  let g='';for(let i=0;i<n;i++){const r=Math.floor(i/cols),c=i%cols;
+    g+=`<rect x="${c*cell+1}" y="${r*cell+1}" width="${cell-2}" height="${cell-2}" rx="${cell>10?3:1}" fill="${i<it.x?'var(--cell-on)':'var(--cell-off)'}"/>`;}
+  const sv=$('sample');sv.setAttribute('viewBox',`0 0 800 ${h}`);sv.innerHTML=g;
+  $('samplenote').innerHTML=`This sample: <b>${it.x}</b> successes (filled) and <b>${S.n-it.x}</b> failures out of n = ${S.n}. A different random sample gives a different p̂, so a different interval.`;
+}
+
+function renderGroup(){
+  const k=S.view,[a,b]=domain(),L=56,R=770,X=scaler(a,b,L,R);
+  const rowH=k===10?26:k===50?15:10,sw=k===10?6:k===50?3.6:2.6,top=24,h=top+k*rowH+44;
+  const dotR=k===10?4.5:k===50?4:3.3,dotW=k===10?2:k===50?1.7:1.4;
+  let list=S.iv.slice(-k).reverse();
+  if(S.sort)list=list.slice().sort((u,v)=>v.ph-u.ph);
+  let s=`<line x1="${X(S.p)}" y1="${top-8}" x2="${X(S.p)}" y2="${top+k*rowH+4}" stroke="var(--pline)" stroke-width="2.5"/>`;
+  s+=`<text x="${X(S.p)}" y="${top-12}" text-anchor="middle" class="ptext" font-size="14">p = ${fp(S.p)}</text>`;
+  const cur=current();
+  list.forEach((it,i)=>{
+    const y=top+i*rowH+rowH/2,col=it.hit?'var(--hit)':'var(--miss)';
+    const isSel=cur&&cur.id===it.id;
+    s+=`<rect class="row-hit" data-id="${it.id}" x="0" y="${top+i*rowH}" width="800" height="${rowH}" fill="${isSel?'color-mix(in srgb, var(--sel) 30%, transparent)':'transparent'}"><title>Interval #${it.id}: (${f3(it.lo)}, ${f3(it.hi)}) ${it.hit?'captured':'missed'} p</title></rect>`;
+    s+=`<line x1="${X(it.lo)}" y1="${y}" x2="${X(it.hi)}" y2="${y}" stroke="${col}" stroke-width="${sw}" pointer-events="none"/>`;
+    s+=`<circle cx="${X(it.ph)}" cy="${y}" r="${dotR}" fill="var(--surface)" stroke="${col}" stroke-width="${dotW}" pointer-events="none"/>`;
+    if(k===10){
+      s+=`<text x="${L-10}" y="${y+5}" text-anchor="end" class="t-muted" font-size="13" pointer-events="none">#${it.id}</text>`;
+      if(!it.hit)s+=`<ellipse cx="${(X(it.lo)+X(it.hi))/2}" cy="${y}" rx="${(X(it.hi)-X(it.lo))/2+16}" ry="${rowH/2}" fill="none" stroke="var(--miss)" stroke-width="1.6" pointer-events="none"/>`;
+    }else if(!it.hit){
+      s+=`<circle cx="${L-14}" cy="${y}" r="${k===50?3.6:3}" fill="var(--miss)" pointer-events="none"/>`;
+    }
+  });
+  if(!list.length)s+=`<text x="400" y="${top+k*rowH/2}" text-anchor="middle" class="t-muted" font-size="16">No intervals yet.</text>`;
+  s+=axisSVG(a,b,X,top+k*rowH+8);
+  const g=$('group');g.setAttribute('viewBox',`0 0 800 ${h}`);g.innerHTML=s;
+  const hits=list.filter(x=>x.hit).length;
+  $('groupnote').innerHTML=list.length?`In the ${list.length===k?'last '+k:list.length} interval${list.length>1?'s':''} shown: <b>${hits}</b> captured p and <b>${list.length-hits}</b> missed (${(hits/list.length*100).toFixed(0)}% captured).`:'';
+}
+
+function renderStats(){
+  const t=S.iv.length;
+  $('bigprop').textContent=t?f3(S.hits/t):'—';
+  $('bigsub').textContent=t?`${comma(S.hits)} of ${comma(t)} intervals captured p`:'Generate some intervals to begin.';
+  $('sTotal').textContent=comma(t);$('sHits').textContent=comma(S.hits);
+  $('sC').textContent=pct(S.C);
+  $('sME').textContent=t?f3(S.sumME/t):'—';
+  $('zline').innerHTML=`z* = ${zstar(S.C).toFixed(3)} for ${pct(S.C)} confidence`;
+  // running chart
+  let mn=1;for(let i=Math.min(9,t-1);i<t;i++)if(i>=0&&S.series[i]<mn)mn=S.series[i];
+  const W=400,H=190,L=44,R=388,T=12,B=160,lo=Math.max(0,Math.min(S.C-0.2,mn)-0.02);
+  const ylo=Math.floor(lo*20)/20,Y=v=>B-(v-ylo)/(1-ylo)*(B-T);
+  let s=`<g class="axis"><line x1="${L}" y1="${B}" x2="${R}" y2="${B}"/><line x1="${L}" y1="${T}" x2="${L}" y2="${B}"/>`;
+  for(let v=ylo;v<=1.0001;v+=(1-ylo)>0.3?0.1:0.05){s+=`<line x1="${L-4}" y1="${Y(v)}" x2="${L}" y2="${Y(v)}"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end">${v.toFixed(2)}</text>`;}
+  s+=`<text x="${(L+R)/2}" y="${H-6}" text-anchor="middle">Number of intervals${t?' (1 to '+comma(t)+')':''}</text></g>`;
+  s+=`<line x1="${L}" y1="${Y(S.C)}" x2="${R}" y2="${Y(S.C)}" stroke="var(--maize)" stroke-width="2.5" stroke-dasharray="7 5"/>`;
+  s+=`<text x="${R}" y="${Y(S.C)-6}" text-anchor="end" font-size="12" class="t-ink" font-weight="700">C = ${S.C.toFixed(2)}</text>`;
+  if(t>0){
+    const step=Math.max(1,Math.floor(t/400));let d='';
+    for(let i=0;i<t;i+=step){const x=t===1?L:L+i/(t-1)*(R-L);d+=(d?'L':'M')+x.toFixed(1)+' '+Y(S.series[i]).toFixed(1);}
+    d+='L'+R+' '+Y(S.series[t-1]).toFixed(1);
+    s+=`<path d="${d}" fill="none" stroke="var(--hit)" stroke-width="2"/>`;
+  }
+  $('run').innerHTML=s;
+}
+
+function renderLog(){
+  let rows=S.log.map(r=>`<tr><td>${r.run}</td><td>${r.n}</td><td>${fp(r.p)}</td><td>${pct(r.C)}</td><td>${comma(r.count)}</td><td>${f3(r.hits/r.count)}</td><td>${f3(r.me)}</td></tr>`).join('');
+  const t=S.iv.length;
+  rows+=`<tr class="current"><td>Now</td><td>${S.n}</td><td>${fp(S.p)}</td><td>${pct(S.C)}</td><td>${comma(t)}</td><td>${t?f3(S.hits/t):'—'}</td><td>${t?f3(S.sumME/t):'—'}</td></tr>`;
+  $('log').innerHTML=rows;
+}
+
+function render(anim){renderDetail(anim);renderGroup();renderStats();renderLog();}
+
+// ---------- controls ----------
+function syncControls(){
+  $('p').value=S.p;$('pr').value=S.p;$('n').value=S.n;
+  document.querySelectorAll('[data-n]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.n===S.n));
+  let match=false;
+  document.querySelectorAll('[data-c]').forEach(b=>{const m=Math.abs(+b.dataset.c-S.C)<1e-9;if(m)match=true;b.setAttribute('aria-pressed',m);});
+  if(match)$('cother').value='';
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===S.view));
+}
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+$('pr').addEventListener('input',e=>{$('p').value=e.target.value;});
+$('pr').addEventListener('change',e=>{const v=+e.target.value;if(v!==S.p)change(()=>{S.p=v;});});
+$('p').addEventListener('change',e=>{let v=clamp(Math.round(+e.target.value*100)/100||0.5,0.01,0.99);if(v!==S.p)change(()=>{S.p=v;});else syncControls();});
+$('n').addEventListener('change',e=>{let v=clamp(Math.round(+e.target.value)||100,5,1000);if(v!==S.n)change(()=>{S.n=v;});else syncControls();});
+document.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{const v=+b.dataset.n;if(v!==S.n)change(()=>{S.n=v;});});
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{const v=+b.dataset.c;if(Math.abs(v-S.C)>1e-9)change(()=>{S.C=v;});});
+$('cother').addEventListener('change',e=>{const raw=+e.target.value;if(!raw)return;const v=clamp(raw,50,99.9)/100;if(Math.abs(v-S.C)>1e-9)change(()=>{S.C=Math.round(v*1000)/1000;});$('cother').value=(Math.round(v*1000)/10);});
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{stopPlay();gen(+b.dataset.k);});
+$('reset').onclick=()=>change(()=>{});
+$('play').onclick=()=>{
+  if(S.timer){stopPlay();return;}
+  $('play').setAttribute('aria-pressed','true');$('play').textContent='Pause';
+  gen(1);S.timer=setInterval(()=>gen(1),650);
+};
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{S.view=+b.dataset.v;syncControls();renderGroup();});
+$('sort').onchange=e=>{S.sort=e.target.checked;renderGroup();};
+$('group').addEventListener('click',e=>{const r=e.target.closest('[data-id]');if(!r)return;S.sel=+r.dataset.id;if(S.sel===S.iv.length)S.sel=null;renderDetail(true);renderGroup();});
+$('clearlog').onclick=()=>{S.log=[];S.run=1;renderLog();};
+
+syncControls();render(false);
+})();
+</script>
+</body>
+</html>
